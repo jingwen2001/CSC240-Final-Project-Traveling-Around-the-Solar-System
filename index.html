@@ -1,0 +1,519 @@
+
+<html>
+<head>
+<title>Texture Mapping</title>
+<script src="three.min.js"></script>
+<script src="GLTFLoader.js"></script>
+<script src="KeyboardState.js"></script>
+
+<style>
+body {
+    margin: 0;
+}
+canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: url(space.jpg) no-repeat center center;
+    background-size: cover;
+}
+</style>
+
+<script>
+var myscene, scene, camera, renderer; // Three.js rendering basics.
+
+var canvas; // The canvas on which the image is rendered.
+
+var keyboard = new KeyboardState();
+
+var ghostHelper, ghostbox, sceneBoxes = [];
+
+var dirLight; // Our directional light is global so we can change its position.
+
+var angle;    // The angle (about the y-axis) of the directional light.
+
+var moving;
+var thrust = new THREE.Vector3(), ufoPos = new THREE.Vector3();
+
+//Build actual planet;
+var neptunesphere;
+var uranussphere;
+var saturnsphere;
+var jupitersphere;
+var marssphere;
+var earthsphere;
+var venussphere;
+var mercurysphere;
+
+// adds a bounding box around the specified object to the list of
+// boxes that we check for collisions
+function addSceneCollider(obj) {
+    obox = new THREE.Box3();
+    //obox.setFromObject(obj);
+    sceneBoxes.push(obox);
+}
+
+
+// Create the scene. This function is called once, as soon as the page loads.
+// The renderer has already been created before this function is called.
+function createWorld() {
+    
+    myscene = new THREE.Scene(); // Create a new scene which we can add objects to.
+    scene = new THREE.Object3D();
+    myscene.add(scene);
+
+    // create a camera, sitting on the positive z-axis.  The camera is not part of the scene.
+    camera = new THREE.PerspectiveCamera(60, canvas.width/canvas.height, 1, 5000);
+    camera.position.set(1,30,4);
+
+    // ambient light
+    ambientLight = new THREE.AmbientLight("white",0.25);
+    scene.add(ambientLight);
+
+    // point light
+    sunLight = new THREE.PointLight("white", 2, 100); // color, intensity, and distance
+    sunLight.position.set(0,0,0);
+    scene.add(sunLight);
+
+    // directional light
+    dirLight = new THREE.DirectionalLight("white", 0.7);
+    angle = Math.PI/4;
+    dirLight.position.set(80,0,80);
+    scene.add(dirLight);
+
+
+    moving = new THREE.Object3D();
+
+
+    // Instantiate a loader
+    var loader = new THREE.GLTFLoader();
+
+    // Load a glTF resource
+    loader.load(
+        
+        'ufo.glb',
+
+        // function below is called when the resource is loaded
+        function ( gltf ) {
+            ghost = gltf.scene;  // search through the loaded file for the object we want
+            gltf.scene.scale.set(3, 3, 3); 
+            scene.add( ghost );
+            ghost.rotation.set(Math.PI,Math.PI/2,Math.PI);
+            ghost.position.z = 600;
+
+            // set camera parameters to look at object we just loaded
+            // (this will override anything you set before)
+            // from https://threejsfundamentals.org/threejs/lessons/threejs-load-obj.html
+            const box = new THREE.Box3().setFromObject(ghost);
+            const boxSize = box.getSize(new THREE.Vector3()).length();
+            const boxCenter = box.getCenter(new THREE.Vector3());
+            console.log(boxSize);
+           // Set the position of the camera
+            camera.position.set(0,0,650);
+            camera.translateZ(5);
+            camera.translateY(10);
+            moving.add(ghost);
+            moving.add(camera);
+            scene.add(moving);
+
+            // compute bounding box of ghost 
+            ghostBox = new THREE.Box3();
+            ghostBox.setFromObject(ghost);
+            console.log(ghostBox);
+
+            requestAnimationFrame( render );  // we don't want to start rendering until the model is loaded
+        },
+        
+        // called while loading is progressing
+        function ( xhr ) {
+            console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+        },
+
+        // called when loading has errors
+        function ( error ) {
+            console.log( 'An error happened' );
+        }
+    );
+
+
+    // set up the sunsphere vars
+        var radiusSu = 120,
+             segmentsSu = 20,
+             ringsSu = 30;
+
+        // load the texture
+        var loader = new THREE.TextureLoader();
+        var sunMap = loader.load("Sun.jpg")
+        var sunEl = loader.load("SunTopo.jpeg")
+
+        // create the sunsphere's material
+        var sphereGeometrySu = new THREE.SphereGeometry(radiusSu, segmentsSu, ringsSu);      
+        var sphereMaterialSu = new THREE.MeshStandardMaterial( { 
+          map: sunMap,
+          bumpMap: sunEl,
+          emissive: 0xff8000,
+          emissiveIntensity: 0.6
+        } );
+        sunsphere = new THREE.Mesh(sphereGeometrySu, sphereMaterialSu);
+        
+        // set up the neptunesphere
+         var radiusN = 40,
+             segmentsN = 10,
+             ringsN = 20;
+
+        // load the texture
+        var loader = new THREE.TextureLoader();
+        var neptuneMap = loader.load("Neptune.jpg")
+        var neptuneEl = loader.load("NeptuneTopo.jpg")
+
+        // create the neptunesphere's material
+        var sphereGeometryN = new THREE.SphereGeometry(radiusN, segmentsN, ringsN);
+        var sphereMaterialN = new THREE.MeshPhongMaterial({ map: neptuneMap, bumpMap: neptuneEl, bumpScale: 10});      
+        neptunesphere = new THREE.Mesh(sphereGeometryN, sphereMaterialN);
+
+        // set up the uranussphere
+        var radiusU = 50,
+             segmentsU = 10,
+             ringsU = 20;
+
+        // load the texture
+        var loader = new THREE.TextureLoader();
+        var uranusMap = loader.load("Uranus.jpg")
+        var uranusEl = loader.load("UranusTopo.jpg")
+
+        // create the uranussphere's material
+        var sphereGeometryU = new THREE.SphereGeometry(radiusU, segmentsU, ringsU);
+        var sphereMaterialU = new THREE.MeshPhongMaterial({ map: uranusMap, bumpMap: uranusEl, bumpScale: 10});      
+        uranussphere = new THREE.Mesh(sphereGeometryU, sphereMaterialU);
+
+        // set up the saturnsphere
+        var radiusS = 70,
+             segmentsS = 10,
+             ringsS = 20;
+
+        // load the texture
+        var loader = new THREE.TextureLoader();
+        var saturnMap = loader.load("Saturn.jpg")
+        var saturnEl = loader.load("SaturnTopo.jpg")
+
+        // create the saturnsphere's material
+        var sphereGeometryS = new THREE.SphereGeometry(radiusS, segmentsS, ringsS);
+        var sphereMaterialS = new THREE.MeshPhongMaterial({ map: saturnMap, bumpMap: saturnEl, bumpScale: 10});      
+        saturnsphere = new THREE.Mesh(sphereGeometryS, sphereMaterialS);
+
+        // set up the jupitersphere
+        var radiusJ = 80,
+             segmentsJ = 10,
+             ringsJ = 20;
+
+        // load the texture
+        var loader = new THREE.TextureLoader();
+        var jupiterMap = loader.load("Jupiter.jpg")
+        var jupiterEl = loader.load("JupiterTopo.jpg")
+
+        // create the jupitersphere's material
+        var sphereGeometryJ = new THREE.SphereGeometry(radiusJ, segmentsJ, ringsJ);
+        var sphereMaterialJ = new THREE.MeshPhongMaterial({ map: jupiterMap, bumpMap: jupiterEl, bumpScale: 10});      
+        jupitersphere = new THREE.Mesh(sphereGeometryJ, sphereMaterialJ);
+
+        // set up the marssphere
+        var radiusMa = 15,
+            segmentsMa = 10,
+            ringsMa = 20;
+
+        // load the texture
+        var loader = new THREE.TextureLoader();
+        var marsMap = loader.load("Mars.jpg")
+        var marsEl = loader.load("MarsTopo.jpg")
+
+        // create the marssphere's material
+        var sphereGeometryMa = new THREE.SphereGeometry(radiusMa, segmentsMa, ringsMa);
+        var sphereMaterialMa = new THREE.MeshPhongMaterial({ map: marsMap, bumpMap: marsEl, bumpScale: 10});      
+        marssphere = new THREE.Mesh(sphereGeometryMa, sphereMaterialMa);
+
+        // set up the earthsphere vars
+        var radiusE = 25,
+            segmentsE = 50,
+            ringsE = 50;
+
+        // load the texture
+        var loader = new THREE.TextureLoader();
+        var earthMap = loader.load("Earth.jpg")
+        var earthEl = loader.load("EarthTopo.png")
+
+        // create the earthsphere's material
+        var sphereGeometryE = new THREE.SphereGeometry(radiusE, segmentsE, ringsE);
+        var sphereMaterialE = new THREE.MeshPhongMaterial({ map: earthMap, bumpMap: earthEl, bumpScale: 10});      
+        earthsphere = new THREE.Mesh(sphereGeometryE, sphereMaterialE);
+
+        // set up the venussphere
+        var radiusV = 20,
+            segmentsV = 50,
+            ringsV = 50;
+
+        // load the texture
+        var loader = new THREE.TextureLoader();
+        var venusMap = loader.load("Venus.jpg")
+        var venusEl = loader.load("VenusTopo.jpg")
+
+        // create the venussphere's material
+        var sphereGeometryV = new THREE.SphereGeometry(radiusV, segmentsV, ringsV);
+        var sphereMaterialV = new THREE.MeshPhongMaterial({ map: venusMap, bumpMap: venusEl, bumpScale: 10});      
+        venussphere = new THREE.Mesh(sphereGeometryV, sphereMaterialV);
+
+        // set up the mercurysphere
+        var radiusMe = 10,
+            segmentsMe = 50,
+            ringsMe = 50;
+
+        // load the texture
+        var loader = new THREE.TextureLoader();
+        var mercuryMap = loader.load("Mercury.jpg")
+        var mercuryEl = loader.load("MercuryTopo.jpg")
+
+        // create the mercurysphere's material
+        var sphereGeometryMe = new THREE.SphereGeometry(radiusMe, segmentsMe, ringsMe);
+        var sphereMaterialMe = new THREE.MeshPhongMaterial({ map: mercuryMap, bumpMap: mercuryEl, bumpScale: 10});      
+        mercurysphere = new THREE.Mesh(sphereGeometryMe, sphereMaterialMe);
+        
+        
+        // Create all virtual objects
+        sun = new THREE.Object3D();
+        earth = new THREE.Object3D();
+        
+        neptuneOrbit= new THREE.Object3D();
+        uranusOrbit= new THREE.Object3D();
+        saturnOrbit= new THREE.Object3D();
+        jupiterOrbit= new THREE.Object3D();
+        marsOrbit= new THREE.Object3D();
+        earthOrbit= new THREE.Object3D();
+        venusOrbit= new THREE.Object3D();
+        mercuryOrbit= new THREE.Object3D();
+        
+        //Add actual objects to the corresponding virtual objects 
+        sun.add(sunsphere);
+        earth.add(earthsphere);
+       
+        sun.add(neptuneOrbit);
+        neptuneOrbit.add(neptunesphere);
+        sun.add(uranusOrbit);
+        uranusOrbit.add(uranussphere);
+        sun.add(saturnOrbit);
+        saturnOrbit.add(saturnsphere);
+        sun.add(jupiterOrbit);
+        jupiterOrbit.add(jupitersphere);
+        sun.add(marsOrbit);
+        marsOrbit.add(marssphere);
+        sun.add(earthOrbit);
+        earthOrbit.add(earth);
+        sun.add(venusOrbit);
+        venusOrbit.add(venussphere);
+        sun.add(mercuryOrbit);
+        mercuryOrbit.add(mercurysphere);
+        
+        scene.add(sun);
+
+        //Set the relative positions of planets to the sun; 
+        mercurysphere.position.x = 250;
+        venussphere.position.x = 350;
+        earth.position.x = 450;
+        marssphere.position.x = 550;
+        jupitersphere.position.x = 750;
+        saturnsphere.position.x = 950;
+        uranussphere.position.x = 1150;
+        neptunesphere.position.x = 1450;
+        
+        //Detect collision when hit planets;
+        addSceneCollider(sunsphere);
+        sceneBoxes[0].setFromObject(sunsphere);
+        addSceneCollider(mercurysphere);
+        addSceneCollider(venussphere);
+        addSceneCollider(earth);
+        addSceneCollider(marssphere);
+        addSceneCollider(jupitersphere);
+        addSceneCollider(saturnsphere);
+        addSceneCollider(uranussphere);
+        addSceneCollider(neptunesphere);
+        
+  }
+
+const speed = 1;
+
+// Modify the scene to produce the desired animation
+function updateAnimation() {
+
+  // scan keyboard
+    keyboard.update();
+
+    // current position
+    var oldX = moving.position.x;
+    var oldY = moving.position.y;
+    var oldZ = moving.position.z;
+    var newX = oldX, newY = oldY, newZ = oldZ;
+
+    // figure out requested movement
+    if ( keyboard.pressed('W') || keyboard.pressed("up") ) {
+        // move forward
+        newZ = oldZ-speed;
+        ghost.rotation.x = -0.1;
+        moving.position.add(thrust);
+    } else if ( keyboard.pressed('S') || keyboard.pressed("down") ) {
+        // move backward
+        newZ = oldZ+speed;
+    }
+    if ( keyboard.pressed('A') || keyboard.pressed("left") ) {
+        // move left
+        newX = oldX-speed;
+    } else if ( keyboard.pressed('D') || keyboard.pressed("right") ) {
+        // move backward
+        newX = oldX+speed;
+    }
+    if ( keyboard.pressed('Q') || keyboard.pressed("[") ) {
+        // move up
+        newY = oldY+speed;
+    } else if ( keyboard.pressed('E') || keyboard.pressed("]") ) {
+        // move down
+        newY = oldY-speed;
+    }
+
+    // apply requested movement
+    moving.position.x = newX;
+    moving.position.y = newY;
+    moving.position.z = newZ;
+    ghostBox.setFromObject(moving);     // account for the new position
+    
+    if (ghostHelper) {
+        ghostHelper.update();
+    }
+    
+    var i = 0
+    // check for collision
+    var isCollision = false;
+    for (i = 0; !isCollision &&(i < sceneBoxes.length); i++) {		
+        isCollision = ghostBox.intersectsBox(sceneBoxes[i]);
+    }	
+
+    // undo requested movement if collision
+    if (isCollision) {
+      moving.position.x = oldX;
+      moving.position.y = oldY;
+      moving.position.z = oldZ;
+      
+      //Check collision and print out the corresponding information
+      if (i == 1){
+        document.getElementById("overlay").innerHTML = "&nbsp;WASD QE or arrows to move:" + " Arrive at: " + "Sun" + "  [Life Detection:"+" No Life]";
+        //i = 0;
+      }
+
+      else if (i == 2){
+        document.getElementById("overlay").innerHTML = "&nbsp;WASD QE or arrows to move:" +" Arrive at: " + "Mercury" + "  [Life Detection:"+" No Life]";
+      }
+
+      else if (i == 3){
+        document.getElementById("overlay").innerHTML = "&nbsp;WASD QE or arrows to move:" + " Arrive at: " + "Venus" + "  [Life Detection:"+" No Life]";
+      }
+
+      else if (i == 4){
+        document.getElementById("overlay").innerHTML = "&nbsp;WASD QE or arrows to move:"+" Arrive at: " + "Earth" + "  [Life Detection:"+" Life:Life:Life]";
+      }
+
+      else if (i == 5){
+        document.getElementById("overlay").innerHTML = "&nbsp;WASD QE or arrows to move:" + " Arrive at: " + "Mars" + "  [Life Detection:"+" No Life]";
+      }
+
+      else if (i == 6){
+        document.getElementById("overlay").innerHTML = "&nbsp;WASD QE or arrows to move:" + " Arrive at: " + "Jupiter" + "  [Life Detection:"+" No Life]";
+      }
+
+      else if (i == 7){
+        document.getElementById("overlay").innerHTML = "&nbsp;WASD QE or arrows to move:"+" Arrive at: " + "Saturn" + "  [Life Detection:"+" No Life]";
+      }
+
+      else if (i == 8){
+        document.getElementById("overlay").innerHTML = "&nbsp;WASD QE or arrows to move:"+" Arrive at: " + "Uranus" + "  [Life Detection:"+" No Life]";
+      }
+
+      else if (i == 9){
+        document.getElementById("overlay").innerHTML = "&nbsp;WASD QE or arrows to move:"+" Arrive at: " + "Neptune" + "  Life Detection:"+" No Life]";
+      }
+
+    }
+
+    else{
+      document.getElementById("overlay").innerHTML = "&nbsp;WASD QE or arrows to move:" +"[Traveling]" ;
+    }
+
+}
+
+// Render the scene. This is called for each frame of the animation.
+function render(t) {
+
+    updateAnimation();
+
+        //Set the auto-rotation speed of each planet 
+        neptunesphere.rotation.y += 0.008;
+        uranussphere.rotation.y += 0.007;
+        saturnsphere.rotation.y += 0.009;
+        jupitersphere.rotation.y += 0.01;
+        marssphere.rotation.y += 0.005;
+        earthsphere.rotation.y += 0.006;
+        venussphere.rotation.y += 0.003;
+        mercurysphere.rotation.y += 0.004;
+        sunsphere.rotation.y += 0.01;
+
+        //Set the revolution speed of each planet 
+        neptuneOrbit.rotation.y += 0.00045;
+        sceneBoxes[8].setFromObject(neptunesphere);
+        uranusOrbit.rotation.y += 0.0005;
+        sceneBoxes[7].setFromObject(uranussphere);
+        saturnOrbit.rotation.y += 0.00055;
+        sceneBoxes[6].setFromObject(saturnsphere);
+        jupiterOrbit.rotation.y += 0.0006;
+        sceneBoxes[5].setFromObject(jupitersphere);
+        marsOrbit.rotation.y += 0.00065;
+        sceneBoxes[4].setFromObject(marssphere);
+        earthOrbit.rotation.y += 0.0007;
+        sceneBoxes[3].setFromObject(earthsphere);
+        venusOrbit.rotation.y += 0.00075;
+        sceneBoxes[2].setFromObject(venussphere);
+        mercuryOrbit.rotation.y += 0.0008;
+        sceneBoxes[1].setFromObject(mercurysphere);
+        
+    renderer.render(myscene, camera);
+    requestAnimationFrame( render );
+}
+
+
+//----------------------------------------------------------------------------------
+
+// The init() function is called by the onload event when the document has loaded.
+function init() {
+    try {
+        canvas = document.getElementById("glcanvas");
+        renderer = new THREE.WebGLRenderer( { canvas: canvas, antialias: true, alpha: true} );
+    }
+    catch (e) {
+        document.getElementById("canvas-holder").innerHTML = "<h3><b>WebGL is not available.</b><h3>";
+        return;
+    }
+
+    // create world and render scene
+    createWorld();
+}
+</script>
+
+</head>
+<body onload="init()">
+  <!-- copy<a/b><br> -->
+  <p style="position: absolute; z-index: 1; color: white; left: 20;">
+  </p>
+<div id="canvas-holder">
+    <canvas id="glcanvas" width="600" height="400"></canvas>
+</div>
+
+<p style="position: absolute; top: 0; z-index:1; color: cyan" id="overlay">
+    &nbsp;WASD or arrows to move</p>
+
+    
+</body>
+</html>
